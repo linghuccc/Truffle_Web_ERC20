@@ -33,3 +33,6 @@ truffle/.env
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+client/src/contexts
+truffle/scripts
