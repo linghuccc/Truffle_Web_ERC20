@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.18;
 
-import "./lib/InitializableOwnable.sol";
 import "./CloneFactory.sol";
+import "./lib/InitializableOwnable.sol";
 
 interface IStdERC20 {
     function init(
@@ -75,7 +75,6 @@ contract ERC20V3Factory is InitializableOwnable {
         _CUSTOM_ERC20_TEMPLATE_ = customErc20Template;
         _CUSTOM_MINTABLE_ERC20_TEMPLATE_ = customMintableErc20Template;
         _CREATE_FEE_ = createFee;
-        // should initOwner here
     }
 
     function createStdERC20(
@@ -86,8 +85,10 @@ contract ERC20V3Factory is InitializableOwnable {
     ) external payable returns (address newERC20) {
         require(msg.value >= _CREATE_FEE_, "CREATE_FEE_NOT_ENOUGH");
         newERC20 = ICloneFactory(_CLONE_FACTORY_).clone(_ERC20_TEMPLATE_);
+
         IStdERC20(newERC20).init(msg.sender, totalSupply, name, symbol, decimals);
         _USER_STD_REGISTRY_[msg.sender].push(newERC20);
+
         emit NewERC20(newERC20, msg.sender, 0);
     }
 

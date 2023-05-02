@@ -1,131 +1,144 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./lib/SafeMath.sol";
+import "./lib/InitializableOwnable.sol";
 
-contract CustomMintableERC20 is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, OwnableUpgradeable {
-    /* ========== 全局参数 ========== */
-    uint8 private tokenDecimals;
-    ///////////////////////////////////////////////////////////////////////////////
-    // 交易燃烧参数
-    // isBurn 决定交易是否燃烧；
-    // burnPercent 为燃烧百分比，以万分之一为单位
-    ///////////////////////////////////////////////////////////////////////////////
-    bool public isBurn = false;
-    uint256 public burnPercent;
-    ///////////////////////////////////////////////////////////////////////////////
-    // 交易手续费参数
-    // isFee决定交易是否收费；
-    // feePercent 为收费百分比，以万分之一为单位；
-    // feeBeneficiary 为接收交易手续费地址
-    ///////////////////////////////////////////////////////////////////////////////
-    bool public isFee = false;
-    uint256 public feePercent;
-    address public feeBeneficiary;
+contract CustomMintableERC20 is InitializableOwnable {
+    using SafeMath for uint256;
 
-    /* ========== 构造函数 ========== */
-    ///////////////////////////////////////////////////////////////////////////////
-    // 创建合约时运行（只运行一次），确保合约只被 init 一次
-    ///////////////////////////////////////////////////////////////////////////////
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-    
-    function init(address _creator, uint256 _initialSupply, string calldata _name, string calldata _symbol, uint8 _decimals, uint256 _tradeBurnRatio, uint256 _tradeFeeRatio, address _teamAccount) initializer public {
-        __ERC20_init(_name, _symbol);
-        tokenDecimals = _decimals;
-        if (_tradeBurnRatio > 0) {
-            isBurn = true;
-            burnPercent = _tradeBurnRatio;
-        }
-        if (_tradeFeeRatio > 0) {
-            isFee = true;
-            feePercent = _tradeFeeRatio;
-        }
-        feeBeneficiary = _teamAccount;
-        _mint(_creator, _initialSupply);
-    }
-    
-    function decimals() public view override returns (uint8) {
-        return tokenDecimals;
-    }
-    /* ========== 设置函数 ========== */
-    ///////////////////////////////////////////////////////////////////////////////
-    // 设置交易手续费，只有合约拥有者才能修改
-    // 如要取消交易手续费，则设置 _feePercent = 0
-    // _feePercent 按万分之一计算，0 <= _feePercent <= 10000
-    ///////////////////////////////////////////////////////////////////////////////
-    function setFee(uint256 _feePercent, address _newReceiver) external onlyOwner {
-        if (_feePercent == 0)
-            isFee = false;
-        else {
-            isFee = true;
-            feePercent = _feePercent;
-            feeBeneficiary = _newReceiver;
-        }
+    string public name;
+    uint8 public decimals;
+    string public symbol;
+    uint256 public totalSupply;
+
+    uint256 public tradeBurnRatio;
+    uint256 public tradeFeeRatio;
+    address public team;
+
+    mapping(address => uint256) balances;
+    mapping(address => mapping(address => uint256)) internal allowed;
+
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+    event Approval(address indexed owner, address indexed spender, uint256 amount);
+    event Mint(address indexed user, uint256 value);
+    event Burn(address indexed user, uint256 value);
+    event ChangeTeam(address oldTeam, address newTeam);
+
+    function init(
+        address _creator,
+        uint256 _initSupply,
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals,
+        uint256 _tradeBurnRatio,
+        uint256 _tradeFeeRatio,
+        address _team
+    ) public {
+        initOwner(_creator);
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+        totalSupply = _initSupply;
+        balances[_creator] = _initSupply;
+        require(_tradeBurnRatio >= 0 && _tradeBurnRatio <= 5000, "TRADE_BURN_RATIO_INVALID");
+        require(_tradeFeeRatio >= 0 && _tradeFeeRatio <= 5000, "TRADE_FEE_RATIO_INVALID");
+        tradeBurnRatio = _tradeBurnRatio;
+        tradeFeeRatio = _tradeFeeRatio;
+        team = _team;
+        emit Transfer(address(0), _creator, _initSupply);
     }
 
-    ///////////////////////////////////////////////////////////////////////////////
-    // 设置交易燃烧，只有合约拥有者才能修改
-    // 如要取消交易燃烧，则设置 _burnPercent = 0
-    // _burnPercent 按万分之一计算，0 <= _burnPercent <= 10000
-    ///////////////////////////////////////////////////////////////////////////////
-    function setBurn(uint256 _burnPercent) external onlyOwner {
-        if (_burnPercent == 0)
-            isBurn = false;
-        else {
-            isBurn = true;
-            burnPercent = _burnPercent;
-        }
-    }
-
-    /* ========== 功能函数 ========== */
-    ///////////////////////////////////////////////////////////////////////////////
-    // 销毁功能在 ERC20BurnableUpgradeable.sol 里面定义
-    // burn(uint256 amount)销毁 function caller 的 token amount
-    // burnFrom(address account, uint256 amount) 销毁 function caller 被 allow spend 的 token amount
-    ///////////////////////////////////////////////////////////////////////////////
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // 运算函数
-    ///////////////////////////////////////////////////////////////////////////////
-    function getAmount(uint256 _amount, uint256 _percent) internal pure returns (uint256) {
-        return _amount * _percent / 10000;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // 复写 transfer 函数，以实现交易销毁及交易收取手续费功能
-    ///////////////////////////////////////////////////////////////////////////////
-    function transfer(address to, uint256 amount) public override returns (bool) {
-        address _fromAddr = _msgSender();
-        uint256 _feeAmount;
-        uint256 _burnAmount;
-        uint256 _remainingAmount;
-
-        if (isFee) {
-            _feeAmount = getAmount(amount, feePercent);
-            _transfer(_fromAddr, feeBeneficiary, _feeAmount);
-        }
-
-        if (isBurn) {
-            _burnAmount = getAmount(amount, burnPercent);
-            _burn(_fromAddr, _burnAmount);
-        }
-
-        _remainingAmount = amount - _feeAmount - _burnAmount;
-        _transfer(_fromAddr, to, _remainingAmount);
-
+    function transfer(address to, uint256 amount) public returns (bool) {
+        _transfer(msg.sender,to,amount);
         return true;
     }
 
-    ///////////////////////////////////////////////////////////////////////////////
-    // mint 函数，实现增发功能
-    ///////////////////////////////////////////////////////////////////////////////
-    function mint(address to, uint256 amount) public onlyOwner {
-        _mint(to, amount);
+    function balanceOf(address owner) public view returns (uint256 balance) {
+        return balances[owner];
+    }
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public returns (bool) {
+        require(amount <= allowed[from][msg.sender], "ALLOWANCE_NOT_ENOUGH");
+        _transfer(from,to,amount);
+        allowed[from][msg.sender] = allowed[from][msg.sender].sub(amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) public returns (bool) {
+        allowed[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) public view returns (uint256) {
+        return allowed[owner][spender];
+    }
+
+
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal virtual {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+        require(balances[sender] >= amount, "ERC20: transfer amount exceeds balance");
+
+        balances[sender] = balances[sender].sub(amount);
+
+        uint256 burnAmount;
+        uint256 feeAmount;
+        if(tradeBurnRatio > 0) {
+            burnAmount = amount.mul(tradeBurnRatio).div(10000);
+            balances[address(0)] = balances[address(0)].add(burnAmount);
+            emit Transfer(sender, address(0), burnAmount);
+        }
+
+        if(tradeFeeRatio > 0) {
+            feeAmount = amount.mul(tradeFeeRatio).div(10000);
+            balances[team] = balances[team].add(feeAmount);
+            emit Transfer(sender, team, feeAmount);
+        }
+        
+        uint256 receiveAmount = amount.sub(burnAmount).sub(feeAmount);
+        balances[recipient] = balances[recipient].add(receiveAmount);
+
+        emit Transfer(sender, recipient, receiveAmount);
+    }
+
+    function burn(uint256 value) external {
+        require(balances[msg.sender] >= value, "VALUE_NOT_ENOUGH");
+
+        balances[msg.sender] = balances[msg.sender].sub(value);
+        totalSupply = totalSupply.sub(value);
+        emit Burn(msg.sender, value);
+        emit Transfer(msg.sender, address(0), value);
+    }
+
+    //=================== Ownable ======================
+    function mint(address user, uint256 value) external onlyOwner {
+        require(user == _OWNER_, "NOT_OWNER");
+        
+        balances[user] = balances[user].add(value);
+        totalSupply = totalSupply.add(value);
+        emit Mint(user, value);
+        emit Transfer(address(0), user, value);
+    }
+
+    function changeTeamAccount(address newTeam) external onlyOwner {
+        require(tradeFeeRatio > 0, "NOT_TRADE_FEE_TOKEN");
+        emit ChangeTeam(team,newTeam);
+        team = newTeam;
+    }
+
+    function abandonOwnership(address zeroAddress) external onlyOwner {
+        require(zeroAddress == address(0), "NOT_ZERO_ADDRESS");
+        emit OwnershipTransferred(_OWNER_, address(0));
+        _OWNER_ = address(0);
     }
 }

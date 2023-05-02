@@ -13,15 +13,15 @@
   </tr>
   <tr>
     <td>StdERC20</td>
-    <td>0x40bB95A6d23b95E3a90044da2F2AafDaad877d9d</td>
+    <td>0x0086366f015De3a472Ac57A0024474601304ee71</td>
   </tr>
   <tr>
     <td>CustomERC20</td>
-    <td>0x1e702bf95Ba5ee30c1861E129E6cE6B269301a2A</td>
+    <td>0xFB59da3BDe81A53F8D2866Fb1fED3DbDF39B478e</td>
   </tr>
   <tr>
     <td>CustomMintableERC20</td>
-    <td>0x4B18368b50730db3F16828e3e7e0B48f62c6e984</td>
+    <td>0x464ee752Daf62312FF89f0d0994c6D756a579B7C</td>
   </tr>
   <tr>
     <td>ERC20V3Factory</td>
