@@ -46,7 +46,7 @@ function Content() {
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
-        // Reset display
+        // Reset display, may not be necessary
         setWalletAddress("");
         setEstimateGas("");
         setGasPrice("");
@@ -129,16 +129,6 @@ function Content() {
     }
   };
 
-  // Below function sequence MATTERS!!!
-  const checkSumFailed = () => {
-    if (parseInt(tradeBurnRatio) + parseInt(tradeFeeRatio) > 10000) {
-      alert(
-        "(Trade Burn Ratio + Trade Fee Ratio) must be equal or less than 10000."
-      );
-      return true;
-    }
-  };
-
   const isNegative = (input, name) => {
     const parsedInput = parseInt(input);
     if (isNaN(parsedInput)) {
@@ -179,8 +169,8 @@ function Content() {
       return true;
     }
 
-    if (parseInt(ratio) > 10000) {
-      alert(name + " must be equal or less than 10000.");
+    if (parseInt(ratio) > 5000) {
+      alert(name + " must be equal or less than 5000.");
       return true;
     }
   };
@@ -218,8 +208,7 @@ function Content() {
       if (
         checkRatioFailed(tradeBurnRatio, "Trade Burn Ratio") ||
         checkRatioFailed(tradeFeeRatio, "Trade Fee Ratio") ||
-        checkAddressFailed(teamAccount, "Team Account") ||
-        checkSumFailed()
+        checkAddressFailed(teamAccount, "Team Account")
       ) {
         return true;
       }
@@ -249,12 +238,12 @@ function Content() {
 
           if (tokenType === "standard") {
             data = contract.methods
-              .createStdERC20(tokenSupply.toString(), name, symbol, decimals)
+              .createStdERC20(tokenSupply.toFixed(), name, symbol, decimals)
               .encodeABI();
           } else if (tokenType === "custom") {
             data = contract.methods
               .createCustomERC20(
-                tokenSupply.toString(),
+                tokenSupply.toFixed(),
                 name,
                 symbol,
                 decimals,
@@ -266,7 +255,7 @@ function Content() {
           } else if (tokenType === "mintable") {
             data = contract.methods
               .createCustomMintableERC20(
-                tokenSupply.toString(),
+                tokenSupply.toFixed(),
                 name,
                 symbol,
                 decimals,
@@ -386,10 +375,11 @@ function Content() {
 
   useEffect(() => {
     if (hash) {
-      window.scrollTo(
-        0,
-        document.documentElement.scrollHeight || document.body.scrollHeight
-      );
+      // window.scrollTo(
+      //   0,
+      //   document.documentElement.scrollHeight || document.body.scrollHeight
+      // );
+      document.body.scrollTop = document.body.scrollHeight;
     }
   }, [hash]);
   // useEffect dependency 里面没有 fee，为什么 fee 还会更新？
@@ -429,7 +419,7 @@ function Content() {
               {stdRecords.map((item) => (
                 <span key={item} style={{ gridColumn: "2" }}>
                   <a
-                    href={`https://sepolia.etherscan.io/address/${item}`}
+                    href={`https://sepolia.etherscan.io/token/${item}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -445,7 +435,7 @@ function Content() {
               {customRecords.map((item) => (
                 <span key={item} style={{ gridColumn: "2" }}>
                   <a
-                    href={`https://sepolia.etherscan.io/address/${item}`}
+                    href={`https://sepolia.etherscan.io/token/${item}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -461,7 +451,7 @@ function Content() {
               {customMintableRecords.map((item) => (
                 <span key={item} style={{ gridColumn: "2" }}>
                   <a
-                    href={`https://sepolia.etherscan.io/address/${item}`}
+                    href={`https://sepolia.etherscan.io/token/${item}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
