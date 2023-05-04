@@ -37,7 +37,6 @@ function Content() {
 
   /* =========== 用于第四部分 Hash 的参数 =========== */
   const [estimateGas, setEstimateGas] = useState("");
-  const gasPriceRef = useRef(null);
   const [gasPrice, setGasPrice] = useState("");
   const [hash, setHash] = useState("");
   const [transaction, setTransaction] = useState(false);
@@ -115,8 +114,6 @@ function Content() {
     } else {
       alert("Please connect your wallet first.");
     }
-    // reset status
-    setTransaction("");
   };
 
   /* =========== 用于第三部分 Contract 的函数 =========== */
@@ -334,60 +331,62 @@ function Content() {
 
   /* =========== 用于更新页面信息 =========== */
   useEffect(() => {
-    console.log("useEffect called");
+    // console.log("loadPage() called");
     if (walletAddress) {
       loadPage();
     }
   }, [walletAddress]);
 
+  // Transaction has already been set as false, why is this function called repeatedly?
   useEffect(() => {
-    if (walletAddress || transaction) {
+    console.log("loadRecords() called");
+    if (transaction) {
       loadRecords();
     }
-  }, [walletAddress, transaction]);
-
-  useEffect(() => {
     if (
+      transaction &&
       recordsRef.current &&
       (stdRecords || customRecords || customMintableRecords)
     ) {
       recordsRef.current.focus();
+      setTransaction(false);
     }
-  }, [recordsRef, stdRecords, customRecords, customMintableRecords]);
+  }, [transaction, stdRecords, customRecords, customMintableRecords]);
 
   useEffect(() => {
+    // console.log("generateGas() called");
     if (transferData) {
       generateGas();
     }
   }, [transferData]);
 
   useEffect(() => {
+    // console.log("sendTransaction() called");
     if (transferData && estimateGas && gasPrice) {
       sendTransaction();
     }
   }, [transferData, estimateGas, gasPrice]);
 
   useEffect(() => {
-    if (gasPriceRef.current && gasPrice) {
-      gasPriceRef.current.focus();
+    // console.log("gasPrice called");
+    if (gasPrice) {
+      window.scrollTo(0, document.documentElement.scrollHeight);
     }
-  }, [gasPriceRef, gasPrice]);
+  }, [gasPrice]);
 
   useEffect(() => {
+    // console.log("document.body.scrollHeight called");
     if (hash) {
-      // window.scrollTo(
-      //   0,
-      //   document.documentElement.scrollHeight || document.body.scrollHeight
-      // );
-      document.body.scrollTop = document.body.scrollHeight;
+      window.scrollTo(0, document.documentElement.scrollHeight);
     }
   }, [hash]);
+
   // useEffect dependency 里面没有 fee，为什么 fee 还会更新？
 
   return (
     <div>
       {/* =========== 用于第一部分 Wallet 的 HTML 代码 =========== */}
-      <div className="section">
+      <div className="section" style={{ marginTop: "10px" }}>
         <button className="button" onClick={connectWallet}>
           Connect Wallet
         </button>
@@ -399,7 +398,9 @@ function Content() {
             <span>{chainId}</span>
             <span>Wallet Address: </span>
             <span>{walletAddress}</span>
-            <span>Balance: </span>
+            <span tabIndex={0} ref={recordsRef} style={{ outline: "none" }}>
+              Balance:{" "}
+            </span>
             <span>{walletBalance ? `${walletBalance} ETH` : "Loading..."}</span>
           </div>
         )}
@@ -407,12 +408,7 @@ function Content() {
 
       {/* =========== 用于第二部分 Records 的 HTML 代码 =========== */}
       {stdRecords || customRecords || customMintableRecords ? (
-        <div
-          className="section"
-          tabIndex={0}
-          ref={recordsRef}
-          style={{ outline: "none" }}
-        >
+        <div className="section">
           {stdRecords ? (
             <div className="two_columns" style={{ padding: "10px" }}>
               <span>Standard ERC20 token:</span>
@@ -616,14 +612,12 @@ function Content() {
 
       {/* =========== 用于第四部分 Hash 的 HTML 代码 =========== */}
       {estimateGas || gasPrice || hash ? (
-        <section className="section">
+        <section className="section" style={{ marginBottom: "20px" }}>
           {estimateGas && gasPrice && (
             <div className="two_columns" style={{ padding: "10px" }}>
               <span>Estimated Gas: </span>
               <span>{estimateGas}</span>
-              <span tabIndex={1} ref={gasPriceRef} style={{ outline: "none" }}>
-                Gas Price (in gwei):{" "}
-              </span>
+              <span>Gas Price (in gwei): </span>
               <span>{web3.utils.fromWei(gasPrice, "gwei")}</span>
             </div>
           )}

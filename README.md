@@ -30,5 +30,7 @@
 </table>
 
 本 project 使用 Truffle 框架，有前端界面，支持在浏览器中一键发币。
+![Screen Capture](client/images/truffle.jpg)
 
-Entry 界面：client/public/index.html。
+前端界面：
+https://linghuccc.github.io/Truffle_Web_ERC20/client/build/index.html
