@@ -381,8 +381,6 @@ function Content() {
     }
   }, [hash]);
 
-  // useEffect dependency 里面没有 fee，为什么 fee 还会更新？
-
   return (
     <div>
       {/* =========== 用于第一部分 Wallet 的 HTML 代码 =========== */}
